@@ -1,15 +1,6 @@
 name: Go Tests and Benchmarks
 
 on:
-  push:
-    tags-ignore:
-      - '*'
-    paths-ignore:
-      - '*.yml'
-      - 'const.go'
-      - '*.txt'
-      - '*.md'
-      - '*.pdf'
   pull_request:
     paths-ignore:
       - '*.yml'
@@ -17,6 +8,9 @@ on:
       - '*.txt'
       - '*.md'
       - '*.pdf'
+  push:
+    tags-ignore:
+      - '*'
 
 jobs:
   test:
