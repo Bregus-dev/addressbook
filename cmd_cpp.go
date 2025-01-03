@@ -116,117 +116,101 @@ func writeCppMotherboards(mapMotherboards map[string]MotherboardObj, file *os.Fi
 
 	// //
 
-	nameStructEsp32Pinout := "Esp32PinoutObj"
-	nameStructMotherboardI2C := "Esp32I2cObj"
-
-	nameEsp32Pinout := "P"
-	nameI2C := "I"
-
-	write(1, fmt.Sprintf("struct %s{ unsigned char Pin; const char* Name; };", nameStructEsp32Pinout))
-	write(1, fmt.Sprintf("struct %s{ const char* Chip; const char* Name; unsigned char Adr; };\n", nameStructMotherboardI2C))
+	write(1, "class Motherboards {")
+	write(1, "public:")
+	write(2, "")
 
 	// //
 
+	devs := make([]string, 0)
+	i2cMap := make(map[byte][]string)
 	for _, key := range sortMapKey(mapMotherboards) {
 		motherboard := mapMotherboards[key]
 
-		write(1, fmt.Sprintf("//%s", key))
-		write(1, fmt.Sprintf("class %s {", ToGoVariableName(motherboard.Name)))
-		write(1, "public:")
-		write(2, fmt.Sprintf("static constexpr const char* Name = \"%s\";", motherboard.Name))
-		write(2, fmt.Sprintf("static constexpr const char* Adr = \"%s\";\n", motherboard.Adr))
-
-		//
-
-		bufStrPinout := make([][]string, 0)
-		for _, pin := range sortMapKeyInt(motherboard.Esp32Pinout) {
-			name := motherboard.Esp32Pinout[pin]
-			bufStrPinout = append(bufStrPinout, []string{pin, name})
+		devs = append(devs, motherboard.Name)
+		for adr := range motherboard.I2C {
+			_, ok := i2cMap[adr]
+			if !ok {
+				i2cMap[adr] = make([]string, 0)
+			}
+			i2cMap[adr] = append(i2cMap[adr], ToGoVariableName(motherboard.Name))
 		}
-
-		write(2, "typedef enum {")
-		for _, pin := range bufStrPinout {
-			write(3, fmt.Sprintf("%s_%s,\t//%s", nameEsp32Pinout, ToGoVariableName(pin[1]), pin[1]))
-		}
-		write(2, fmt.Sprintf("} %s_t;\n", nameEsp32Pinout))
-
-		bufStrI2C := make([][]string, 0)
-		for adr, i2c := range motherboard.I2C {
-			bufStrI2C = append(bufStrI2C, []string{fmt.Sprintf("%#02x", adr), i2c.Name, i2c.Chip})
-		}
-		write(2, "typedef enum {")
-		for _, pin := range bufStrI2C {
-			write(3, fmt.Sprintf("%s_%s,\t//%s", nameI2C, ToGoVariableName(pin[1]), pin[1]))
-		}
-		write(2, fmt.Sprintf("} %s_t;\n", nameI2C))
-
-		write(2, fmt.Sprintf("static std::map<%s_t, %s*> pinout;", nameEsp32Pinout, nameStructEsp32Pinout))
-		write(2, fmt.Sprintf("static std::map<%s_t, %s*> i2c;", nameI2C, nameStructMotherboardI2C))
-		write(2, fmt.Sprintf("static std::map<unsigned char, %s_t> i2cAdr;", nameI2C))
-		write(1, "};\n")
-
-		write(1, "/"+strings.Repeat("/", 8)+"/\n")
-
-		// //
-
-		writeBuf := make([]string, 0)
-		for _, pin := range bufStrPinout {
-			hashName := "_P" + strings.ToUpper(Hash(nameEsp32Pinout+pin[0]+pin[1]+key))
-
-			write(1, fmt.Sprintf("static %s %s = { %s, \"%s\" };",
-				nameStructEsp32Pinout, hashName, pin[0], pin[1],
-			))
-			writeBuf = append(writeBuf, fmt.Sprintf("{ %s::%s_%s, &%s },",
-				ToGoVariableName(motherboard.Name), nameEsp32Pinout, ToGoVariableName(pin[1]), hashName,
-			))
-		}
-
-		write(1, fmt.Sprintf("std::map<%s::%s_t, %s*> %s::pinout = {",
-			ToGoVariableName(motherboard.Name), nameEsp32Pinout, nameStructEsp32Pinout, ToGoVariableName(motherboard.Name),
-		))
-		for _, text := range writeBuf {
-			write(2, text)
-		}
-		write(1, "};\n")
-
-		// //
-
-		writeBuf = make([]string, 0)
-		writeBuf2 := make([]string, 0)
-		for _, i2c := range bufStrI2C {
-			hashName := "_I" + strings.ToUpper(Hash(nameStructMotherboardI2C+i2c[0]+i2c[1]+i2c[2]+key))
-
-			write(1, fmt.Sprintf("static %s %s = { \"%s\", \"%s\", %s };",
-				nameStructMotherboardI2C, hashName, i2c[1], i2c[2], i2c[0],
-			))
-			writeBuf = append(writeBuf, fmt.Sprintf("{ %s::%s_%s, &%s },",
-				ToGoVariableName(motherboard.Name), nameI2C, ToGoVariableName(i2c[1]), hashName,
-			))
-			writeBuf2 = append(writeBuf2, fmt.Sprintf("{ %s, %s::%s_%s },",
-				i2c[0], ToGoVariableName(motherboard.Name), nameI2C, ToGoVariableName(i2c[1]),
-			))
-		}
-
-		write(1, fmt.Sprintf("std::map<%s::%s_t, %s*> %s::i2c = {",
-			ToGoVariableName(motherboard.Name), nameI2C, nameStructMotherboardI2C, ToGoVariableName(motherboard.Name),
-		))
-		for _, text := range writeBuf {
-			write(2, text)
-		}
-		write(1, "};")
-
-		write(1, fmt.Sprintf("std::map<unsigned char, %s::%s_t> %s::i2cAdr = {",
-			ToGoVariableName(motherboard.Name), nameI2C, ToGoVariableName(motherboard.Name),
-		))
-		for _, text := range writeBuf2 {
-			write(2, text)
-		}
-		write(1, "};\n")
-
-		// ////////
-
-		write(1, "/"+strings.Repeat("**", 16)+"/\n")
 	}
+
+	write(2, "typedef enum {")
+	for _, name := range devs {
+		write(3, fmt.Sprintf("MB_%s,\t//%s", ToGoVariableName(name), name))
+	}
+	write(2, "} devises_t;\n")
+
+	write(2, "struct DevObj{devises_t Dev;const char* Name;std::map<const char*, unsigned char> Pinout;std::map<const char*, unsigned char> I2C;};\n")
+
+	write(2, "static std::map<devises_t, DevObj> dev;")
+	write(2, "static std::map<unsigned char, std::vector<devises_t>> i2c;")
+	write(1, "};\n")
+
+	write(1, "/"+strings.Repeat("/", 8)+"/\n")
+
+	// //
+
+	hashBuf := make([][]string, 0)
+	for _, key := range sortMapKey(mapMotherboards) {
+		motherboard := mapMotherboards[key]
+		pinoutStr := make([]string, 0)
+		i2cStr := make([]string, 0)
+
+		for adr, i2c := range motherboard.I2C {
+			i2cStr = append(i2cStr, fmt.Sprintf("{\"%s\", %#02x}", i2c.Name, adr))
+		}
+		sort.Strings(i2cStr)
+
+		for _, pin := range sortMapKey(motherboard.Esp32Pinout) {
+			pinoutStr = append(pinoutStr, fmt.Sprintf("{\"%s\", %s}", motherboard.Esp32Pinout[pin], pin))
+		}
+
+		hashName := strings.ToUpper(Hash(motherboard.Name + strings.Join(pinoutStr, "") + strings.Join(i2cStr, "")))
+		hashBuf = append(hashBuf, []string{ToGoVariableName(motherboard.Name), hashName})
+
+		write(1, fmt.Sprintf("static Motherboards::DevObj _MB%s = {", hashName))
+		write(2, fmt.Sprintf("Motherboards::MB_%s,", ToGoVariableName(motherboard.Name)))
+		write(2, fmt.Sprintf("\"%s\",", motherboard.Name))
+
+		write(2, fmt.Sprintf("std::map<const char*, unsigned char>{"))
+		for _, txt := range pinoutStr {
+			write(3, txt+",")
+		}
+		write(2, fmt.Sprintf("},"))
+
+		write(2, fmt.Sprintf("std::map<const char*, unsigned char>{"))
+		for _, txt := range i2cStr {
+			write(3, txt+",")
+		}
+		write(2, fmt.Sprintf("},"))
+
+		write(1, fmt.Sprintf("};"))
+	}
+	write(1, "")
+
+	write(1, "std::map<Motherboards::devises_t, Motherboards::DevObj> Motherboards::dev = {")
+	for _, arr := range hashBuf {
+		write(2, fmt.Sprintf("{Motherboards::MB_%s, _MB%s},", arr[0], arr[1]))
+	}
+	write(1, "};\n")
+
+	write(1, "std::map<unsigned char, std::vector<Motherboards::devises_t>> Motherboards::i2c = {")
+	for key, arrName := range i2cMap {
+		bufArr := make([]string, 0)
+		for _, name := range arrName {
+			bufArr = append(bufArr, fmt.Sprintf("Motherboards::MB_%s", ToGoVariableName(name)))
+		}
+
+		write(2, fmt.Sprintf(
+			"{%#2x, std::vector<Motherboards::devises_t>{%s}},",
+			key,
+			strings.Join(bufArr, ", "),
+		))
+	}
+	write(1, "};\n")
 }
 
 func writeCppModules(mapModules map[string]ModulObj, file *os.File) {
@@ -482,9 +466,7 @@ func writeCpp(obj *IronAdressbookObj, pathToFile string) error {
 	// //
 
 	filesDir := filepath.Join(rootDir, "addressbook")
-	if err := os.Mkdir(filesDir, 0755); err != nil {
-		return err
-	}
+	os.Mkdir(filesDir, 0755)
 	writeCpp_delInDir(filesDir)
 
 	// // // //
