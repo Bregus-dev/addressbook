@@ -94,5 +94,5 @@ go build -o addressbook.bin
 ```
 
 ```bash
-./addressbook.bin write-cpp --fileFrom bregus_iron_addressbook.yml --fileTo "/home/user/CLionProjects/BregusTEST/include"
+./addressbook.bin write-cpp --fileFrom bregus_iron_addressbook.yml --fileTo "./temp/filemane.cpp"
 ```
